@@ -28,17 +28,7 @@ def authenticate_gmail_calendar():
             token.write(creds.to_json())
     return creds
 
-def load_processed_emails(filename='processed_emails.txt'):
-    if not os.path.exists(filename):
-        return set()
-    with open(filename, 'r') as f:
-        return set(line.strip() for line in f)
-
-def save_processed_email(email_id, filename='processed_emails.txt'):
-    with open(filename, 'a') as f:
-        f.write(f"{email_id}\n")
-
-def fetch_emails(service, sender_email="no.reply@innout.com", earliest_date="2024/11/01"):
+def fetch_emails(service, sender_email="no.reply@innout.com", earliest_date="2024/01/01"):
     try:
         # Add the after filter to the query to only include emails after the specified date
         query = f"from:{sender_email} subject:INO # Schedule after:{earliest_date}"
@@ -55,7 +45,7 @@ def parse_event_details(subject, email_content):
     plain_text = soup.get_text(separator=" ")
         
     # Extract week range from subject line
-    week_match = re.search(r"Schedule (\d{2}/\d{2}/\d{2}) - (\d{2}/\d{2}/\d{2})", subject)
+    week_match = re.search(r"Schedule.*?(\d{2}/\d{2}/\d{2}) - (\d{2}/\d{2}/\d{2})", subject)
     if not week_match:
         print("No week range found in subject line.")
         return None
@@ -146,7 +136,7 @@ def check_for_new_emails():
     calendar_service = build('calendar', 'v3', credentials=creds)
 
     target_calendar_id = "dd6bbc8230435c66819832f4d34ad3fc3000eb386db4e1fbff8d1a36bee93f58@group.calendar.google.com"  # Replace with your actual calendar ID
-    processed_emails = load_processed_emails()
+    
 
     while True:
         emails = fetch_emails(gmail_service)
@@ -155,10 +145,6 @@ def check_for_new_emails():
         else:
             for email in emails:
                 email_id = email['id']
-
-                if email_id in processed_emails:
-                    print(f"Skipping duplicate email ID: {email_id}")
-                    continue
 
                 message = gmail_service.users().messages().get(userId='me', id=email_id).execute()
                 subject = next(header['value'] for header in message['payload']['headers'] if header['name'] == 'Subject')
@@ -169,7 +155,6 @@ def check_for_new_emails():
                 if shifts:
                     for shift in shifts:
                         create_calendar_event(calendar_service, target_calendar_id, shift)
-                    save_processed_email(email_id)
                 else:
                     print(f'No valid event details found in email: {subject}')
         
