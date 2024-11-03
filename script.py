@@ -28,7 +28,7 @@ def authenticate_gmail_calendar():
             token.write(creds.to_json())
     return creds
 
-def fetch_emails(service, sender_email="no.reply@innout.com", earliest_date="2024/11/01"):
+def fetch_emails(service, sender_email="no.reply@innout.com", earliest_date=datetime.now().strftime("%Y/%m/%d")):
     try:
         # Add the after filter to the query to only include emails after the specified date
         query = f"from:{sender_email} subject:INO # Schedule after:{earliest_date}"
