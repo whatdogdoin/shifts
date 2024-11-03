@@ -28,7 +28,7 @@ def authenticate_gmail_calendar():
             token.write(creds.to_json())
     return creds
 
-def fetch_emails(service, sender_email="no.reply@innout.com", earliest_date="2024/01/01"):
+def fetch_emails(service, sender_email="no.reply@innout.com", earliest_date="2024/11/01"):
     try:
         # Add the after filter to the query to only include emails after the specified date
         query = f"from:{sender_email} subject:INO # Schedule after:{earliest_date}"
@@ -135,7 +135,7 @@ def check_for_new_emails():
     gmail_service = build('gmail', 'v1', credentials=creds)
     calendar_service = build('calendar', 'v3', credentials=creds)
 
-    target_calendar_id = "dd6bbc8230435c66819832f4d34ad3fc3000eb386db4e1fbff8d1a36bee93f58@group.calendar.google.com"  # Replace with your actual calendar ID
+    target_calendar_id = "example@group.calendar.google.com"  # Replace with your actual calendar ID
     
 
     while True:
