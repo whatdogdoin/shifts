@@ -19,4 +19,5 @@ There are a couple of things that are needed in order to run this script because
    pip install beautifulsoup4
 
 4. Put script.py and credentials.json in their own folder, shouldn't really matter where.
-5. Open Command Prompt or Powershell and run either "script.py" or if that does not work "python script.py"
+5. BEFORE RUNNING MAKE SURE YOU OPEN script.py AND EDIT LINE 138 AND REPLACE example@group.calendar.com WITH YOUR ACTUAL CALENDAR ID
+6. Open Command Prompt or Powershell and run either "script.py" or if that does not work "python script.py"
