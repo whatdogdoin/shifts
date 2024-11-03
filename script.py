@@ -132,7 +132,7 @@ def create_calendar_event(calendar_service, calendar_id, event_details):
         return
 
     event = {
-        'summary': event_details["summary"],
+        'summary': "INO",
         'description': f"Event ID: {event_id}",
         'start': {'dateTime': event_details["start"].isoformat(), 'timeZone': 'PST'},
         'end': {'dateTime': event_details["end"].isoformat(), 'timeZone': 'PST'},
