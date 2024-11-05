@@ -14,8 +14,8 @@ There are a couple of things that are needed in order to run this script because
 
    Go to credentials and create credentials, with authorized redirect URIs as http://localhost:57053/.  localhost means it is running only on your computer, this is not sending information anywhere else
    Save and download the .json file and rename it to credentials.json
-3. Run these commands in Powershell to install neccessary dependancies
-   pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2
+3. Run these commands in Powershell to install neccessary dependancies<br />
+   pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2<br />
    pip install beautifulsoup4
 
 4. Put script.py and credentials.json in their own folder, shouldn't really matter where.
