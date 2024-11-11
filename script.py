@@ -6,6 +6,7 @@ import hashlib
 from datetime import datetime, timedelta
 import subprocess
 import sys
+import pkg_resources
 
 # List of required dependencies
 required_packages = [
@@ -20,10 +21,9 @@ def install_package(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
 def check_and_install_packages(packages):
+    installed_packages = {pkg.key for pkg in pkg_resources.working_set}
     for package in packages:
-        try:
-            __import__(package)
-        except ImportError:
+        if package not in installed_packages:
             print(f"Package '{package}' not found. Installing...")
             install_package(package)
         else:
