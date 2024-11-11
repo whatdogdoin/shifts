@@ -6,7 +6,6 @@ import hashlib
 from datetime import datetime, timedelta
 import subprocess
 import sys
-import pkg_resources
 import json
 
 # List of required dependencies
@@ -44,6 +43,7 @@ def main():
         print("Marker file found. Skipping dependency installation.")
 
 # Now import the required modules after ensuring they are installed
+import pkg_resources
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
