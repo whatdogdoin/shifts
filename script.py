@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import subprocess
 import sys
 import pkg_resources
+import json
 
 # List of required dependencies
 required_packages = [
@@ -29,7 +30,18 @@ def check_and_install_packages(packages):
         else:
             print(f"Package '{package}' is already installed.")
 
-check_and_install_packages(required_packages)
+
+def main():
+    marker_file = 'dependencies_installed.txt'
+    
+    if not os.path.exists(marker_file):
+        print("Marker file not found. Installing dependencies...")
+        check_and_install_packages(required_packages)
+        with open(marker_file, 'w') as file:
+            file.write('Dependencies installed')
+        print("Marker file created.")
+    else:
+        print("Marker file found. Skipping dependency installation.")
 
 # Now import the required modules after ensuring they are installed
 from google.auth.transport.requests import Request
@@ -55,7 +67,7 @@ def authenticate_gmail_calendar():
             token.write(creds.to_json())
     return creds
 
-def fetch_emails(service, sender_email="no.reply@innout.com", earliest_date= (datetime.now() - timedelta(days=7)).strftime("%Y/%m/%d")):
+def fetch_emails(service, sender_email="no.reply@innout.com", earliest_date= (datetime.now() - timedelta(days=2)).strftime("%Y/%m/%d")):
     try:
         query = f"from:{sender_email} subject:INO # Schedule after:{earliest_date}"
         results = service.users().messages().list(userId='me', q=query).execute()
@@ -161,6 +173,12 @@ def list_user_calendars(calendar_service):
         return []
 
 def get_user_selected_calendars(calendar_service):
+    if os.path.exists('selected_calendars.json'):
+        with open('selected_calendars.json', 'r') as file:
+            selected_calendar_ids = json.load(file)
+        print("Loaded selected calendars from file.")
+        return selected_calendar_ids
+
     calendars = list_user_calendars(calendar_service)
     if not calendars:
         print("No calendars found.")
@@ -174,12 +192,17 @@ def get_user_selected_calendars(calendar_service):
     selected_indices = [int(index.strip()) - 1 for index in selected_indices.split(',') if index.strip().isdigit()]
 
     selected_calendar_ids = [calendars[i]['id'] for i in selected_indices if 0 <= i < len(calendars)]
+
+    with open('selected_calendars.json', 'w') as file:
+        json.dump(selected_calendar_ids, file)
+    print("Saved selected calendars to file.")
+
     return selected_calendar_ids
 
 if __name__ == '__main__':
     SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar']
 
-    check_and_install_packages(required_packages)
+    main()
 
     creds = authenticate_gmail_calendar()
     gmail_service = build('gmail', 'v1', credentials=creds)
