@@ -1,3 +1,9 @@
+ITS ALL BROKEY ;-;
+
+
+
+
+
 Auto add shifts to google calendar from In-N-Out emails, runs 24/7 but only checks for new emails every 12 hours
 
 I AM NOT GOOD AT PYTHON.  RUN AT YOUR OWN RISK.  I AM PROVIDING DOCUMENTATION FOR HOPEFUL EASE OF USE
