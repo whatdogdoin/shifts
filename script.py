@@ -3,69 +3,94 @@ import base64
 import re
 import time
 import hashlib
+from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-import subprocess
-import sys
-import json
-
-# List of required dependencies
-required_packages = [
-    'beautifulsoup4',  # Correct package name for BeautifulSoup
-    'google-auth',
-    'google-auth-oauthlib',
-    'google-auth-httplib2',
-    'google-api-python-client'
-]
-
-def install_package(package):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
-def check_and_install_packages(packages):
-    installed_packages = {pkg.key for pkg in pkg_resources.working_set}
-    for package in packages:
-        if package not in installed_packages:
-            print(f"Package '{package}' not found. Installing...")
-            install_package(package)
-        else:
-            print(f"Package '{package}' is already installed.")
-
-
-def main():
-    marker_file = 'dependencies_installed.txt'
-    
-    if not os.path.exists(marker_file):
-        print("Marker file not found. Installing dependencies...")
-        check_and_install_packages(required_packages)
-        with open(marker_file, 'w') as file:
-            file.write('Dependencies installed')
-        print("Marker file created.")
-    else:
-        print("Marker file found. Skipping dependency installation.")
-
-# Now import the required modules after ensuring they are installed
-import pkg_resources
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from bs4 import BeautifulSoup
+import google.auth.exceptions  
+import tkinter as tk
+from tkinter import messagebox
+import webbrowser
 
+# If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar']
 
 def authenticate_gmail_calendar():
     creds = None
+    if not os.path.exists('credentials.json'):
+        show_credentials_prompt()
+        return None
+
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        try:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+                # Save the new token to the file
+                with open('token.json', 'w') as token:
+                    token.write(creds.to_json())
+        except google.auth.exceptions.RefreshError:
+            # If the refresh token is invalid, delete the token file and re-authenticate
+            os.remove('token.json')
+            creds = None
+
     if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=57053)
+        flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+        creds = flow.run_local_server(port=57053)
+        # Save the new token to the file
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
     return creds
+
+def show_credentials_prompt():
+    def open_link():
+        webbrowser.open("https://www.google.com")
+
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+
+    message = ("The credentials file 'credentials.json' is missing.\n"
+               "Please follow the link to create and download the credentials file:\n"
+               "https://www.google.com")
+    messagebox.showinfo("Missing Credentials", message)
+    open_link()
+
+def list_calendars(service):
+    try:
+        calendar_list = service.calendarList().list().execute()
+        calendars = calendar_list.get('items', [])
+        return calendars
+    except HttpError as error:
+        print(f'An error occurred: {error}')
+        return None
+
+def prompt_user_to_select_calendars(calendars):
+    def save_selection():
+        selected_calendars = [calendars[i]['id'] for i in range(len(calendars)) if var_list[i].get()]
+        with open('selected_calendars.txt', 'w') as file:
+            for calendar_id in selected_calendars:
+                file.write(f"{calendar_id}\n")
+        messagebox.showinfo("Selection Saved", "Your calendar selections have been saved.")
+        root.destroy()
+
+    root = tk.Tk()
+    root.title("Select Calendars")
+
+    var_list = []
+    for i, calendar in enumerate(calendars):
+        var = tk.BooleanVar()
+        chk = tk.Checkbutton(root, text=calendar['summary'], variable=var)
+        chk.pack(anchor='w')
+        var_list.append(var)
+
+    save_button = tk.Button(root, text="Save Selection", command=save_selection)
+    save_button.pack()
+
+    root.mainloop()
+
 
 def fetch_emails(service, sender_email="no.reply@innout.com", earliest_date= (datetime.now() - timedelta(days=2)).strftime("%Y/%m/%d")):
     try:
@@ -147,68 +172,38 @@ def event_exists(calendar_service, calendar_id, event_id):
         print("Error during event_exists check:", e)
         return False
 
-def create_calendar_event(calendar_service, calendar_ids, event_details):
+def create_calendar_event(calendar_service, calendar_id, event_details):
     event_id = generate_event_id(event_details)
-    for calendar_id in calendar_ids:
-        if event_exists(calendar_service, calendar_id, event_id):
-            print(f"Event '{event_details['summary']}' already exists in calendar {calendar_id} for event ID: {event_id}. Skipping.")
-            continue
+    if event_exists(calendar_service, calendar_id, event_id):
+        print(f"Event '{event_details['summary']}' already exists for event ID: {event_id}. Skipping.")
+        return
 
-        event = {
-            'summary': "INO",
-            'description': f"Event ID: {event_id}",
-            'start': {'dateTime': event_details["start"].isoformat(), 'timeZone': 'PST'},
-            'end': {'dateTime': event_details["end"].isoformat(), 'timeZone': 'PST'},
-        }
-        calendar_service.events().insert(calendarId=calendar_id, body=event).execute()
-        print(f"Event created in calendar {calendar_id}: {event_details['summary']} from {event_details['start']} to {event_details['end']}.")
+    event = {
+        'summary': "INO",
+        'description': f"Event ID: {event_id}",
+        'start': {'dateTime': event_details["start"].isoformat(), 'timeZone': 'PST'},
+        'end': {'dateTime': event_details["end"].isoformat(), 'timeZone': 'PST'},
+    }
+    calendar_service.events().insert(calendarId=calendar_id, body=event).execute()
+    print(f"Event created: {event_details['summary']} from {event_details['start']} to {event_details['end']}.")
 
-def list_user_calendars(calendar_service):
-    try:
-        calendar_list = calendar_service.calendarList().list().execute()
-        calendars = calendar_list.get('items', [])
-        return calendars
-    except HttpError as error:
-        print(f'An error occurred: {error}')
-        return []
-
-def get_user_selected_calendars(calendar_service):
-    if os.path.exists('selected_calendars.json'):
-        with open('selected_calendars.json', 'r') as file:
-            selected_calendar_ids = json.load(file)
-        print("Loaded selected calendars from file.")
-        return selected_calendar_ids
-
-    calendars = list_user_calendars(calendar_service)
-    if not calendars:
-        print("No calendars found.")
-        return []
-
-    print("Available calendars:")
-    for i, calendar in enumerate(calendars):
-        print(f"{i + 1}. {calendar['summary']} (ID: {calendar['id']})")
-
-    selected_indices = input("Enter the numbers of the calendars you want to use, separated by commas: ")
-    selected_indices = [int(index.strip()) - 1 for index in selected_indices.split(',') if index.strip().isdigit()]
-
-    selected_calendar_ids = [calendars[i]['id'] for i in selected_indices if 0 <= i < len(calendars)]
-
-    with open('selected_calendars.json', 'w') as file:
-        json.dump(selected_calendar_ids, file)
-    print("Saved selected calendars to file.")
-
-    return selected_calendar_ids
-
-if __name__ == '__main__':
-    SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar']
-
-    main()
-
+def check_for_new_emails():
     creds = authenticate_gmail_calendar()
+    if not creds:
+        return
+
     gmail_service = build('gmail', 'v1', credentials=creds)
     calendar_service = build('calendar', 'v3', credentials=creds)
 
-    target_calendar_ids = get_user_selected_calendars(calendar_service)
+    if not os.path.exists('selected_calendars.txt') or os.stat('selected_calendars.txt').st_size == 0:
+        calendars = list_calendars(calendar_service)
+        if not calendars:
+            print("No calendars found.")
+            return
+        prompt_user_to_select_calendars(calendars)
+
+    with open('selected_calendars.txt', 'r') as file:
+        selected_calendars = [line.strip() for line in file]
 
     while True:
         emails = fetch_emails(gmail_service)
@@ -226,9 +221,13 @@ if __name__ == '__main__':
 
                 if shifts:
                     for shift in shifts:
-                        create_calendar_event(calendar_service, target_calendar_ids, shift)
+                        for calendar_id in selected_calendars:
+                            create_calendar_event(calendar_service, calendar_id, shift)
                 else:
                     print(f'No valid event details found in email: {subject}')
         
         print("Waiting for 12 hours before checking for new emails...")
         time.sleep(43200)
+
+if __name__ == '__main__':
+    check_for_new_emails()
