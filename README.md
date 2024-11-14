@@ -22,4 +22,4 @@ There are a couple of things that are needed in order to run this script because
    Save and download the .json file and rename it to credentials.json
 
 3. Put script.exe and credentials.json in their own folder, shouldn't really matter where.
-4. run script.exe and watch your calendars populate with your shifts
+4. run script.exe and watch your calendars populate with your shifts if you received emails within the past 2 days.
