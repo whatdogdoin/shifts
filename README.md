@@ -1,4 +1,4 @@
-ITS ALL BROKEY ;-;
+Fixed it
 
 
 
@@ -9,7 +9,7 @@ Auto add shifts to google calendar from In-N-Out emails, runs 24/7 but only chec
 I AM NOT GOOD AT PYTHON.  RUN AT YOUR OWN RISK.  I AM PROVIDING DOCUMENTATION FOR HOPEFUL EASE OF USE
 
 There are a couple of things that are needed in order to run this script because I am not going to bother making it something not run locally:
-1. Python and pip.  This is a python project that is run in the command line, I recommend using a Raspberry Pi or some other single board computer to run this script at low power.
+1. You need a credentials.json file that has access to Google API for this to work.  The .exe is compiled from the code in script.py but since I am unverified, the download will likely be blocked and may also be blocked by Windows Defender.  This .exe is safe, whether or not you trust it is up to you
    
 2. Google developer account for access to Gmail and Google Calendar APIs, I didn't know which ones to enable so I just selected all of them, feel free to experiment on your own time as I am probably never going to mess with this
    Everything in the screenshots below is in OAuth consent screen<br />
@@ -21,6 +21,5 @@ There are a couple of things that are needed in order to run this script because
    Go to credentials and create credentials, with authorized redirect URIs as http://localhost:57053/.  localhost means it is running only on your computer, this is not sending information anywhere else
    Save and download the .json file and rename it to credentials.json
 
-3. Put script.py and credentials.json in their own folder, shouldn't really matter where.
-4. BEFORE RUNNING MAKE SURE YOU OPEN script.py AND EDIT LINE 138 AND REPLACE example@group.calendar.com WITH YOUR ACTUAL CALENDAR ID
-5. Open Command Prompt or Powershell and run either "script.py" or if that does not work "python script.py"
+3. Put script.exe and credentials.json in their own folder, shouldn't really matter where.
+4. run script.exe and watch your calendars populate with your shifts
