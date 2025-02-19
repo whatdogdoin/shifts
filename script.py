@@ -20,29 +20,31 @@ SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googlea
 
 def authenticate_gmail_calendar():
     creds = None
-    if not os.path.exists('credentials.json'):
+    token_path = "token.json"
+    
+    if not os.path.exists("credentials.json"):
         show_credentials_prompt()
         return None
 
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-        try:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-                # Save the new token to the file
-                with open('token.json', 'w') as token:
-                    token.write(creds.to_json())
-        except google.auth.exceptions.RefreshError:
-            # If the refresh token is invalid, delete the token file and re-authenticate
-            os.remove('token.json')
-            creds = None
+    if os.path.exists(token_path):
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())  # Refresh the access token
+                with open(token_path, "w") as token:
+                    token.write(creds.to_json())  # Save the refreshed token
+            except google.auth.exceptions.RefreshError:
+                print("Refresh token is invalid or revoked. Deleting token.json and reauthenticating.")
+                os.remove(token_path)
+                creds = None  # Force re-authentication
 
     if not creds or not creds.valid:
-        flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-        creds = flow.run_local_server(port=57053)
-        # Save the new token to the file
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+        flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+        creds = flow.run_local_server(port=57053, access_type="offline", prompt="consent")
+        with open(token_path, "w") as token:
+            token.write(creds.to_json())  # Save credentials for next time
+
     return creds
 
 def show_credentials_prompt():
@@ -188,46 +190,57 @@ def create_calendar_event(calendar_service, calendar_id, event_details):
     print(f"Event created: {event_details['summary']} from {event_details['start']} to {event_details['end']}.")
 
 def check_for_new_emails():
-    creds = authenticate_gmail_calendar()
-    if not creds:
-        return
-
-    gmail_service = build('gmail', 'v1', credentials=creds)
-    calendar_service = build('calendar', 'v3', credentials=creds)
-
-    if not os.path.exists('selected_calendars.txt') or os.stat('selected_calendars.txt').st_size == 0:
-        calendars = list_calendars(calendar_service)
-        if not calendars:
-            print("No calendars found.")
-            return
-        prompt_user_to_select_calendars(calendars)
-
-    with open('selected_calendars.txt', 'r') as file:
-        selected_calendars = [line.strip() for line in file]
-
     while True:
-        emails = fetch_emails(gmail_service)
-        if not emails:
-            print("No new event emails found.")
-        else:
-            for email in emails:
-                email_id = email['id']
+        creds = authenticate_gmail_calendar()
+        if not creds:
+            print("Authentication failed. Retrying in 1 minute...")
+            time.sleep(60)  # Wait before retrying
+            continue
 
-                message = gmail_service.users().messages().get(userId='me', id=email_id).execute()
-                subject = next(header['value'] for header in message['payload']['headers'] if header['name'] == 'Subject')
-                email_content = base64.urlsafe_b64decode(message['payload']['body']['data']).decode('utf-8')
-                
-                shifts = parse_event_details(subject, email_content)
+        try:
+            gmail_service = build("gmail", "v1", credentials=creds)
+            calendar_service = build("calendar", "v3", credentials=creds)
 
-                if shifts:
-                    for shift in shifts:
-                        for calendar_id in selected_calendars:
-                            create_calendar_event(calendar_service, calendar_id, shift)
-                else:
-                    print(f'No valid event details found in email: {subject}')
-        
-        print("Waiting for 12 hours before checking for new emails...")
-        time.sleep(43200)
+            if not os.path.exists('selected_calendars.txt') or os.stat('selected_calendars.txt').st_size == 0:
+                calendars = list_calendars(calendar_service)
+                if not calendars:
+                    print("No calendars found.")
+                    return
+                prompt_user_to_select_calendars(calendars)
+
+            with open('selected_calendars.txt', 'r') as file:
+                selected_calendars = [line.strip() for line in file]
+
+            emails = fetch_emails(gmail_service)
+            if not emails:
+                print("No new event emails found.")
+            else:
+                for email in emails:
+                    email_id = email['id']
+                    message = gmail_service.users().messages().get(userId='me', id=email_id).execute()
+                    subject = next(header['value'] for header in message['payload']['headers'] if header['name'] == 'Subject')
+                    email_content = base64.urlsafe_b64decode(message['payload']['body']['data']).decode('utf-8')
+
+                    shifts = parse_event_details(subject, email_content)
+
+                    if shifts:
+                        for shift in shifts:
+                            for calendar_id in selected_calendars:
+                                create_calendar_event(calendar_service, calendar_id, shift)
+                    else:
+                        print(f'No valid event details found in email: {subject}')
+
+            print("Waiting for 12 hours before checking for new emails...")
+            time.sleep(43200)  # 12-hour wait
+
+        except google.auth.exceptions.GoogleAuthError as auth_error:
+            print(f"Authentication error: {auth_error}. Reauthenticating in 1 minute...")
+            os.remove("token.json")  # Delete expired credentials
+            time.sleep(60)  # Wait before retrying
+        except Exception as e:
+            print(f"Unexpected error: {e}. Retrying in 1 minute...")
+            time.sleep(60)  # Wait before retrying
+
 
 if __name__ == '__main__':
     check_for_new_emails()
